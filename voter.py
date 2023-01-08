@@ -102,3 +102,4 @@ def find_consensus():
             if candidate_voters == all_voters:
                 # We have a consensus!
                 return candidate_games
+    return None
