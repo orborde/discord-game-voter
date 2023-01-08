@@ -54,8 +54,28 @@ async def on_message(message):
 
 @client.event
 async def on_reaction_add(reaction, user):
+    print(
+        f'Got reaction {reaction.emoji} from {user} on {reaction.message.content}')
+    await handle_reaction(reaction, user)
+
+
+@client.event
+async def on_reaction_remove(reaction, user):
+    print(
+        f'Removed reaction {reaction.emoji} from {user} on {reaction.message.content}')
+    await handle_reaction(reaction, user)
+
+
+async def handle_reaction(reaction, user):
+    print(
+        f'Reaction {reaction.emoji} from {user} on {reaction.message}')
+
     # Ignore reactions from the bot
     if user == client.user:
+        return
+
+    # Ignore reactions on messages that aren't from the bot
+    if reaction.message.author != client.user:
         return
 
     # Get the suggestion text
@@ -73,14 +93,6 @@ async def on_reaction_add(reaction, user):
     suggestions_and_upvotes[suggestion] = actual_upvoters
 
     await check_and_report_consensus(client)
-
-
-@client.event
-async def on_reaction_remove(reaction, user):
-    assert user != client.user
-    suggestion = reaction.message.content[12:]
-    if reaction.emoji == '👍':
-        suggestions_and_upvotes[suggestion].discard(user.name)
 
 
 @client.event
