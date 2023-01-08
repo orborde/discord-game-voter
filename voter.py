@@ -9,11 +9,9 @@ import collections
 import itertools
 import discord
 import asyncio
-import os
 from typing import *
 
-# Get the bot token from the environment
-TOKEN = os.environ['DISCORD_TOKEN']
+TOKEN = open('token.txt').read().strip()
 
 # Create the client
 client = discord.Client()
