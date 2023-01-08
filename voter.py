@@ -19,6 +19,7 @@ intents = discord.Intents(
     messages=True, message_content=True, reactions=True)
 print(intents, intents.messages, intents.reactions, intents.message_content)
 client = discord.Client(intents=intents)
+tree = discord.app_commands.CommandTree(client)
 
 # The channel to send the message to
 channel_id = 1061770027860230265
@@ -28,28 +29,24 @@ channel: Optional[discord.TextChannel] = None
 suggestions_and_upvotes: Dict[str, Set[str]] = {}
 
 
-@client.event
-async def on_message(message):
-    print(f'Message from {message.author}: {message.content}')
-    # Respond to the /suggest command
-    if message.content.startswith('!suggest'):
-        # Get the suggestion text
-        suggestion = message.content[9:]
-        # Add the suggestion to the list
-        if suggestion in suggestions_and_upvotes:
-            # Duplicate suggestion. Print a message and return.
-            await message.channel.send(f'Duplicate suggestion {suggestion}. Please try again.')
-            return
+@tree.command(name='suggest')
+async def suggest_command(ctx, suggestion: str):
+    source_channel = ctx.channel
+    # Add the suggestion to the list
+    if suggestion in suggestions_and_upvotes:
+        # Duplicate suggestion. Print a message and return.
+        await source_channel.send(f'Duplicate suggestion {suggestion}. Please try again.')
+        return
 
-        # Add the suggestion to the list
-        suggestions_and_upvotes[suggestion] = set()
+    # Add the suggestion to the list
+    suggestions_and_upvotes[suggestion] = set()
 
-        # Send the message to the channel
-        # channel = client.get_channel(channel_id)
-        msg = await channel.send(f'Suggestion: {suggestion}')
-        # Add the upvote/downvote reactions
-        await msg.add_reaction('👍')
-        await msg.add_reaction('👎')
+    # Send the message to the channel
+    # channel = client.get_channel(channel_id)
+    msg = await source_channel.send(f'Suggestion: {suggestion}')
+    # Add the upvote/downvote reactions
+    await msg.add_reaction('👍')
+    await msg.add_reaction('👎')
 
 
 @client.event
@@ -98,7 +95,9 @@ async def handle_reaction(reaction, user):
 @client.event
 async def on_ready():
     print(f'We have logged in as {client.user}')
-    # Send an "I'm alive" message
+    print('Syncing command tree...')
+    await tree.sync()
+    print('Command tree synced')
     global channel
     # channel = client.get_channel(channel_id)
     channel = await client.fetch_channel(channel_id)
