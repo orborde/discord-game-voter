@@ -22,6 +22,8 @@ client = discord.Client(intents=intents)
 
 # The channel to send the message to
 channel_id = 939817366257279006
+# TODO: figure out why get_channel doesn't work
+channel: Optional[discord.TextChannel] = None
 
 suggestions_and_upvotes: Dict[str, Set[str]] = {}
 
@@ -42,7 +44,7 @@ async def on_message(message):
         suggestions_and_upvotes[suggestion] = set()
 
         # Send the message to the channel
-        channel = client.get_channel(channel_id)
+        # channel = client.get_channel(channel_id)
         msg = await channel.send(f'Suggestion: {suggestion}')
         # Add the upvote/downvote reactions
         await msg.add_reaction('👍')
@@ -84,6 +86,7 @@ async def on_reaction_remove(reaction, user):
 async def on_ready():
     print(f'We have logged in as {client.user}')
     # Send an "I'm alive" message
+    global channel
     # channel = client.get_channel(channel_id)
     channel = await client.fetch_channel(channel_id)
     await channel.send('I\'m alive!')
