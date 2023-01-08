@@ -30,8 +30,9 @@ suggestions_and_upvotes: Dict[str, Set[str]] = {}
 
 
 @tree.command(name='suggest')
-async def suggest_command(ctx, suggestion: str):
-    source_channel = ctx.channel
+async def suggest_command(interaction: discord.interactions.Interaction, suggestion: str):
+    print(f'{type(interaction)}')
+    source_channel = interaction.channel
     # Add the suggestion to the list
     if suggestion in suggestions_and_upvotes:
         # Duplicate suggestion. Print a message and return.
@@ -47,6 +48,7 @@ async def suggest_command(ctx, suggestion: str):
     # Add the upvote/downvote reactions
     await msg.add_reaction('👍')
     await msg.add_reaction('👎')
+    # TODO: mark completed in some non-spammy way
 
 
 @client.event
