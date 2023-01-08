@@ -45,8 +45,6 @@ async def on_message(message):
         await msg.add_reaction('👍')
         await msg.add_reaction('👎')
 
-# Process the reaction votes
-
 
 @client.event
 async def on_reaction_add(reaction, user):
