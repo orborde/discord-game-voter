@@ -5,6 +5,7 @@
 # TODO: incorporate logging of the last assignment people accepted so that we can assign players together with
 #       others they haven't played with lately.
 
+import collections
 import itertools
 import discord
 import asyncio
@@ -92,15 +93,21 @@ def find_consensus():
     for voters in suggestions_and_upvotes.values():
         all_voters.update(voters)
 
-    # Check whether there's a covering set of voter-sets for progressively larger candidate covering set sizes.
+    # Check whether there's a non-overlapping covering set of voter-sets for progressively larger candidate covering set sizes.
     # (Divide by two because the smallest usable voter-set is size 2)
     for num_partitions in range(1, len(all_voters)/2 + 1):
         for candidate_games in itertools.combinations(suggestions_and_upvotes.keys(), num_partitions):
-            candidate_voters = set()
+            candidate_voters = collections.Counter()
             for game in candidate_games:
-                candidate_voters.update(suggestions_and_upvotes[game])
-            if candidate_voters == all_voters:
-                # We have a consensus!
+                for voter in suggestions_and_upvotes[game]:
+                    candidate_voters[voter] += 1
+
+            if any(votes > 1 for votes in candidate_voters.values()):
+                # Can't have overlap between sets (which would mean that some players are assigned to multiple games)
+                continue
+
+            if set(candidate_voters.keys()) == all_voters:
+                # Found a consensus!
                 return candidate_games
     return None
 
