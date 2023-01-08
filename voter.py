@@ -21,7 +21,7 @@ print(intents, intents.messages, intents.reactions, intents.message_content)
 client = discord.Client(intents=intents)
 
 # The channel to send the message to
-channel_id = 939817366257279006
+channel_id = 1061770027860230265
 # TODO: figure out why get_channel doesn't work
 channel: Optional[discord.TextChannel] = None
 
