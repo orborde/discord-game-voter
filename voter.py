@@ -65,9 +65,9 @@ async def on_reaction_add(reaction, user):
     downvoters = set()
     for reaction in reaction.message.reactions:
         if reaction.emoji == '👍':
-            upvoters = await reaction.users().flatten()
+            upvoters = {u async for u in reaction.users()}
         elif reaction.emoji == '👎':
-            downvoters = await reaction.users().flatten()
+            downvoters = {u async for u in reaction.users()}
     actual_upvoters = upvoters - downvoters - {client.user}
     suggestions_and_upvotes[suggestion] = actual_upvoters
 
@@ -109,7 +109,7 @@ def find_consensus():
 
     # Check whether there's a non-overlapping covering set of voter-sets for progressively larger candidate covering set sizes.
     # (Divide by two because the smallest usable voter-set is size 2)
-    for num_partitions in range(1, len(all_voters)/2 + 1):
+    for num_partitions in range(1, len(all_voters)//2 + 1):
         for candidate_games in itertools.combinations(suggestions_and_upvotes.keys(), num_partitions):
             candidate_voters = collections.Counter()
             for game in candidate_games:
