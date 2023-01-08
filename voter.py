@@ -30,8 +30,9 @@ suggestions_and_upvotes: Dict[str, Set[str]] = {}
 
 @client.event
 async def on_message(message):
+    print(f'Message from {message.author}: {message.content}')
     # Respond to the /suggest command
-    if message.content.startswith('/suggest'):
+    if message.content.startswith('!suggest'):
         # Get the suggestion text
         suggestion = message.content[9:]
         # Add the suggestion to the list
