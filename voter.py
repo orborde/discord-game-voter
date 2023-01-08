@@ -14,10 +14,14 @@ from typing import *
 TOKEN = open('token.txt').read().strip()
 
 # Create the client
-client = discord.Client()
+# TODO: restrict to only the intents we need
+intents = discord.Intents(
+    messages=True, message_content=True, reactions=True)
+print(intents, intents.messages, intents.reactions, intents.message_content)
+client = discord.Client(intents=intents)
 
 # The channel to send the message to
-channel_id = 123456789012345678
+channel_id = 939817366257279006
 
 suggestions_and_upvotes: Dict[str, Set[str]] = {}
 
@@ -74,6 +78,15 @@ async def on_reaction_remove(reaction, user):
     suggestion = reaction.message.content[12:]
     if reaction.emoji == '👍':
         suggestions_and_upvotes[suggestion].discard(user.name)
+
+
+@client.event
+async def on_ready():
+    print(f'We have logged in as {client.user}')
+    # Send an "I'm alive" message
+    # channel = client.get_channel(channel_id)
+    channel = await client.fetch_channel(channel_id)
+    await channel.send('I\'m alive!')
 
 
 async def check_and_report_consensus(client):
