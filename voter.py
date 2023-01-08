@@ -8,7 +8,6 @@
 import collections
 import itertools
 import discord
-import asyncio
 from typing import *
 
 TOKEN = open('token.txt').read().strip()
@@ -17,7 +16,6 @@ TOKEN = open('token.txt').read().strip()
 # TODO: restrict to only the intents we need
 intents = discord.Intents(
     messages=True, message_content=True, reactions=True)
-print(intents, intents.messages, intents.reactions, intents.message_content)
 client = discord.Client(intents=intents)
 tree = discord.app_commands.CommandTree(client)
 
