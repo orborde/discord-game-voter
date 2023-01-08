@@ -110,10 +110,11 @@ async def check_and_report_consensus(client):
     games = find_consensus()
     if games is None:
         return
-    channel = client.get_channel(channel_id)
-    await channel.send("Consensus reached! Here's the list of games to play:")
+    lines = ["Consensus reached! Here's the list of games to play:"]
     for game in games:
-        await channel.send(f' - {game}: {suggestions_and_upvotes[game]}')
+        players = ', '.join(u.name for u in suggestions_and_upvotes[game])
+        lines.append(f' - {game}: {players}')
+    await channel.send('\n'.join(lines))
 
 
 def find_consensus():
