@@ -54,14 +54,19 @@ async def on_reaction_add(reaction, user):
 
     # Get the suggestion text
     suggestion = reaction.message.content[12:]
-    # Add the user to the list of upvotes if positive
-    # TODO: handle the case where the user has already voted
-    if reaction.emoji == '👍':
-        suggestions_and_upvotes[suggestion].add(user.name)
-    if reaction.emoji == '👎':
-        suggestions_and_upvotes[suggestion].discard(user.name)
 
-# Process reaction deletions
+    # Check all reactions on the message
+    upvoters = set()
+    downvoters = set()
+    for reaction in reaction.message.reactions:
+        if reaction.emoji == '👍':
+            upvoters = await reaction.users().flatten()
+        elif reaction.emoji == '👎':
+            downvoters = await reaction.users().flatten()
+    actual_upvoters = upvoters - downvoters - {client.user}
+    suggestions_and_upvotes[suggestion] = actual_upvoters
+
+    await check_and_report_consensus(client)
 
 
 @client.event
