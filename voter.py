@@ -31,10 +31,8 @@ suggestions_and_upvotes: Dict[str, Set[str]] = {}
 async def suggest_command(interaction: discord.interactions.Interaction, suggestion: str):
     print(f'{type(interaction)}')
     source_channel = interaction.channel
-    # Add the suggestion to the list
     if suggestion in suggestions_and_upvotes:
-        # Duplicate suggestion. Print a message and return.
-        await source_channel.send(f'Duplicate suggestion {suggestion}. Please try again.')
+        await interaction.response.send_message(f'"{suggestion}" has already been suggested. Go vote on it?', ephemeral=True)
         return
 
     # Add the suggestion to the list
@@ -46,7 +44,7 @@ async def suggest_command(interaction: discord.interactions.Interaction, suggest
     # Add the upvote/downvote reactions
     await msg.add_reaction('👍')
     await msg.add_reaction('👎')
-    # TODO: mark completed in some non-spammy way
+    await interaction.response.send_message(f'Suggestion {suggestion} added.', ephemeral=True)
 
 
 @client.event
