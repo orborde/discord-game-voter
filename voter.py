@@ -246,5 +246,10 @@ async def on_ready():
         await status_channel.send('I\'m alive!')
 
 
+async def main():
+    global global_state_lock
+    global_state_lock = asyncio.Lock()
+    await client.start(TOKEN)
+
 if __name__ == '__main__':
-    client.run(TOKEN)
+    asyncio.run(main())
