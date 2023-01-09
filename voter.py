@@ -164,7 +164,13 @@ async def get_vote_state(channel: discord.TextChannel):
         print(
             f'Creating new vote state for {channel}')
         await channel.send(
-            "Starting a new vote! React 👍 on what you're willing to play, and `/suggest <game>` to add an option.")
+            textwrap.dedent("""
+            Starting a new vote!
+            - React 👍 on what you're willing to play
+            - `/suggest <game>` to add an option
+            - `/tally` to see the current results
+            - `/endvote` to end the vote
+            """))
         pending_votes[channel] = VoteState(
             channel=channel,
             suggestions_and_upvotes={},
