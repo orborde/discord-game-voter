@@ -10,6 +10,7 @@ import asyncio
 import collections
 from dataclasses import dataclass
 import itertools
+import textwrap
 import discord
 from typing import *
 
@@ -103,11 +104,16 @@ class VoteState:
 
         await self.check_and_report_consensus()
 
-    async def check_and_report_consensus(self):
+    async def check_and_report_consensus(self, interaction: discord.interactions.Interaction, ephemeral: bool):
         assignment = self.find_best_assignment()
         if assignment is None:
-            return
-        if self.last_assignment_reported is not None and assignment == self.last_assignment_reported:
+            await interaction.response.send_message(
+                textwrap.dedent(
+                    f"""
+                    No suitable assignment found.
+                    (At least {MINIMUM_VOTES} people need to cast votes, and I'm looking for at least {MINIMUM_PLAYERS_PER_GAME} in each game.)
+                    """),
+                ephemeral=ephemeral)
             return
         lines = ["Consensus reached! Here's the list of games to play:"]
         games_to_players = collections.defaultdict(set)
@@ -116,7 +122,7 @@ class VoteState:
         for game, players in sorted(games_to_players.items()):
             players = ', '.join(u.name for u in players)
             lines.append(f' - {game}: {players}')
-        await self.channel.send('\n'.join(lines))
+        await interaction.response.send_message('\n'.join(lines), ephemeral=ephemeral)
         # Doing this at the end in case the send fails
         self.last_assignment_reported = assignment
 
@@ -177,15 +183,28 @@ async def suggest_command(interaction: discord.interactions.Interaction, suggest
         await vote_state.handle_suggest(interaction, suggestion, interaction.user.name)
 
 
+@tree.command(name='tally')
+async def tally_command(interaction: discord.interactions.Interaction):
+    async with global_state_lock:
+        if interaction.channel not in pending_votes:
+            await interaction.response.send_message('No vote in progress.', ephemeral=True)
+            return
+
+        vote_state = pending_votes[interaction.channel]
+        await vote_state.check_and_report_consensus(interaction, ephemeral=True)
+
+
 @tree.command(name='endvote')
 async def endvote_command(interaction: discord.interactions.Interaction):
     async with global_state_lock:
         if interaction.channel not in pending_votes:
-            await interaction.response.send_message('No pending votes.', ephemeral=True)
+            await interaction.response.send_message('No vote in progress.', ephemeral=True)
             return
 
+        vote_state = pending_votes[interaction.channel]
         del pending_votes[interaction.channel]
-        await interaction.response.send_message('Vote ended.')
+        await vote_state.check_and_report_consensus(interaction, ephemeral=False)
+        await interaction.channel.send('Vote ended.')
 
 
 @client.event
