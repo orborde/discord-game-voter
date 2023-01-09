@@ -8,6 +8,7 @@
 import collections
 from dataclasses import dataclass
 import itertools
+import math
 import discord
 from typing import *
 
@@ -27,8 +28,28 @@ status_channel: Optional[discord.TextChannel] = None
 
 MINIMUM_VOTES = 4
 
-# A set of games to play
-Consensus = Set[str]
+
+GameName = str
+PlayerName = str
+Assignment = Dict[PlayerName, GameName]
+
+
+def number_of_games(assignment: Assignment) -> int:
+    games = set(assignment.values())
+    return len(games)
+
+
+def imbalance(assignment: Assignment) -> int:
+    games_to_players = collections.defaultdict(set)
+    for player, game in assignment.items():
+        games_to_players[game].add(player)
+    return max(len(players) for players in games_to_players.values()) - min(len(players) for players in games_to_players.values())
+
+
+def assignment_better(a: Assignment, b: Assignment) -> bool:
+    if number_of_games(a) == number_of_games(b):
+        return imbalance(a) < imbalance(b)
+    return number_of_games(a) < number_of_games(b)
 
 
 @dataclass
@@ -36,7 +57,7 @@ class VoteState:
     channel: discord.TextChannel
     suggestions_and_upvotes: Dict[str, Set[str]]
     # TODO: clean up old consensus messages somehow
-    last_consensus_reported: Optional[Consensus]
+    last_assignment_reported: Optional[Assignment]
     suggestion_messages: Set[discord.Message]
 
     async def handle_suggest(self, interaction: discord.interactions.Interaction, suggestion: str, voter: str):
@@ -88,45 +109,51 @@ class VoteState:
         await self.check_and_report_consensus()
 
     async def check_and_report_consensus(self):
-        games = self.find_consensus()
-        if games is None:
+        assignment = self.find_best_assignment()
+        if assignment is None:
             return
-        if self.last_consensus_reported is not None and games == self.last_consensus_reported:
+        if self.last_assignment_reported is not None and assignment == self.last_assignment_reported:
             return
         lines = ["Consensus reached! Here's the list of games to play:"]
-        for game in games:
-            players = ', '.join(
-                u.name for u in self.suggestions_and_upvotes[game])
+        games_to_players = collections.defaultdict(set)
+        for player, game in assignment.items():
+            games_to_players[game].add(player)
+        for game, players in sorted(games_to_players.items()):
+            players = ', '.join(u.name for u in players)
             lines.append(f' - {game}: {players}')
         await self.channel.send('\n'.join(lines))
         # Doing this at the end in case the send fails
-        self.last_consensus_reported = games
+        self.last_assignment_reported = assignment
 
-    def find_consensus(self) -> Consensus:
-        all_voters = set()
-        for voters in self.suggestions_and_upvotes.values():
-            all_voters.update(voters)
+    def possible_assignments(self) -> Iterable[Assignment]:
+        # Find all possible assignments of players to games
+        players_to_games = collections.defaultdict(set)
+        for game in self.suggestions_and_upvotes:
+            for player in self.suggestions_and_upvotes[game]:
+                players_to_games[player].add(game)
+        players_list = list(self.suggestions_and_upvotes.keys())
+        for games_list in itertools.product(*[players_to_games[p] for p in players_list]):
+            assignment = dict(zip(players_list, games_list))
+            # Check that no player is alone.
+            games_to_players = collections.defaultdict(set)
+            for player, game in assignment.items():
+                games_to_players[game].add(player)
+            if any(len(players) == 1 for players in games_to_players.values()):
+                continue
+            yield assignment
 
-        if len(all_voters) < MINIMUM_VOTES:
+    def find_best_assignment(self) -> Optional[Assignment]:
+        if len(set.union(*self.suggestions_and_upvotes.values())) < MINIMUM_VOTES:
             return None
 
-        # Check whether there's a non-overlapping covering set of voter-sets for progressively larger candidate covering set sizes.
-        # (Divide by two because the smallest usable voter-set is size 2)
-        for num_partitions in range(1, len(all_voters)//2 + 1):
-            for candidate_games in itertools.combinations(self.suggestions_and_upvotes.keys(), num_partitions):
-                candidate_voters = collections.Counter()
-                for game in candidate_games:
-                    for voter in self.suggestions_and_upvotes[game]:
-                        candidate_voters[voter] += 1
-
-                if any(votes > 1 for votes in candidate_voters.values()):
-                    # Can't have overlap between sets (which would mean that some players are assigned to multiple games)
-                    continue
-
-                if set(candidate_voters.keys()) == all_voters:
-                    # Found a consensus!
-                    return candidate_games
-        return None
+        # Find the best assignment of players to games
+        best_assignment = None
+        for assignment in self.possible_assignments():
+            if best_assignment is None:
+                best_assignment = assignment
+            elif assignment_better(assignment, best_assignment):
+                best_assignment = assignment
+        return best_assignment
 
 
 pending_votes: Dict[discord.TextChannel, VoteState] = {}
@@ -140,7 +167,7 @@ async def get_vote_state(channel: discord.TextChannel):
         pending_votes[channel] = VoteState(
             channel=channel,
             suggestions_and_upvotes={},
-            last_consensus_reported=None,
+            last_assignment_reported=None,
             suggestion_messages=set(),
         )
     return pending_votes[channel]
