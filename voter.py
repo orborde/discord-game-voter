@@ -25,6 +25,9 @@ status_channel_id = 1061770027860230265
 status_channel: Optional[discord.TextChannel] = None
 
 
+MINIMUM_VOTES = 4
+
+
 @dataclass
 class Suggestion:
     game: str
@@ -102,6 +105,9 @@ class VoteState:
         all_voters = set()
         for voters in self.suggestions_and_upvotes.values():
             all_voters.update(voters)
+
+        if len(all_voters) < MINIMUM_VOTES:
+            return None
 
         # Check whether there's a non-overlapping covering set of voter-sets for progressively larger candidate covering set sizes.
         # (Divide by two because the smallest usable voter-set is size 2)
