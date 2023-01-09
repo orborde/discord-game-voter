@@ -173,8 +173,8 @@ async def suggest_command(interaction: discord.interactions.Interaction, suggest
     await vote_state.handle_suggest(interaction, suggestion, interaction.user.name)
 
 
-@tree.command(name='end')
-async def end_command(interaction: discord.interactions.Interaction):
+@tree.command(name='endvote')
+async def endvote_command(interaction: discord.interactions.Interaction):
     if interaction.channel not in pending_votes:
         await interaction.response.send_message('No pending votes.', ephemeral=True)
         return
