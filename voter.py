@@ -127,7 +127,7 @@ class VoteState:
         for game in self.suggestions_and_upvotes:
             for player in self.suggestions_and_upvotes[game]:
                 players_to_games[player].add(game)
-        players_list = list(self.suggestions_and_upvotes.keys())
+        players_list = list(players_to_games.keys())
         for games_list in itertools.product(*[players_to_games[p] for p in players_list]):
             assignment = dict(zip(players_list, games_list))
             # Check that no player is alone.
