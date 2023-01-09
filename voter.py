@@ -125,10 +125,11 @@ class VoteState:
 pending_votes: Dict[discord.TextChannel, VoteState] = {}
 
 
-def get_vote_state(channel: discord.TextChannel):
+async def get_vote_state(channel: discord.TextChannel):
     if channel not in pending_votes:
         print(
             f'Creating new vote state for {channel}')
+        await channel.send('Starting a new vote!')
         pending_votes[channel] = VoteState(
             channel=channel,
             suggestions_and_upvotes={},
@@ -140,7 +141,7 @@ def get_vote_state(channel: discord.TextChannel):
 
 @tree.command(name='suggest')
 async def suggest_command(interaction: discord.interactions.Interaction, suggestion: str):
-    vote_state = get_vote_state(interaction.channel)
+    vote_state = await get_vote_state(interaction.channel)
     await vote_state.handle_suggest(interaction, suggestion, interaction.user.name)
 
 
@@ -162,7 +163,7 @@ async def on_reaction_add(reaction: discord.Reaction, user: discord.User):
     if reaction.message.channel not in pending_votes:
         print('...ignored because no pending vote')
         return
-    await get_vote_state(reaction.message.channel).handle_reaction(reaction, user)
+    await pending_votes[reaction.message.channel].handle_reaction(reaction, user)
 
 
 @client.event
@@ -172,7 +173,7 @@ async def on_reaction_remove(reaction, user):
     if reaction.message.channel not in pending_votes:
         print('...ignored because no pending vote')
         return
-    await get_vote_state(reaction.message.channel).handle_reaction(reaction, user)
+    await pending_votes[reaction.message.channel].handle_reaction(reaction, user)
 
 
 @client.event
