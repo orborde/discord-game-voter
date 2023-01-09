@@ -26,6 +26,7 @@ status_channel: Optional[discord.TextChannel] = None
 
 
 MINIMUM_VOTES = 4
+MINIMUM_PLAYERS_PER_GAME = 2
 
 
 GameName = str
@@ -130,11 +131,11 @@ class VoteState:
         players_list = list(players_to_games.keys())
         for games_list in itertools.product(*[players_to_games[p] for p in players_list]):
             assignment = dict(zip(players_list, games_list))
-            # Check that no player is alone.
+            # Check that no game is too small.
             games_to_players = collections.defaultdict(set)
             for player, game in assignment.items():
                 games_to_players[game].add(player)
-            if any(len(players) == 1 for players in games_to_players.values()):
+            if any(len(players) > 0 and len(players) < MINIMUM_PLAYERS_PER_GAME for players in games_to_players.values()):
                 continue
             yield assignment
 
