@@ -6,6 +6,7 @@
 #       others they haven't played with lately.
 
 import collections
+from dataclasses import dataclass
 import itertools
 import discord
 from typing import *
@@ -19,75 +20,152 @@ intents = discord.Intents(
 client = discord.Client(intents=intents)
 tree = discord.app_commands.CommandTree(client)
 
-# The channel to send the message to
-channel_id = 1061770027860230265
+status_channel_id = 1061770027860230265
 # TODO: figure out why get_channel doesn't work
-channel: Optional[discord.TextChannel] = None
+status_channel: Optional[discord.TextChannel] = None
 
-suggestions_and_upvotes: Dict[str, Set[str]] = {}
+
+@dataclass
+class Suggestion:
+    game: str
+    voters: Set[str]
+
+
+@dataclass
+class VoteState:
+    channel: discord.TextChannel
+    suggestions_and_upvotes: Dict[str, Set[str]]
+    last_suggestion_made: Optional[Suggestion]
+    # TODO: clean up old suggestion messages somehow
+    suggestion_messages: Set[discord.Message]
+
+    async def handle_suggest(self, interaction: discord.interactions.Interaction, suggestion: str, voter: str):
+        source_channel = interaction.channel
+
+        if suggestion in self.suggestions_and_upvotes:
+            await interaction.response.send_message(f'"{suggestion}" has already been suggested. Go vote on it?', ephemeral=True)
+            return
+
+        # Add the suggestion to the list
+        self.suggestions_and_upvotes[suggestion] = set()
+
+        # Send the message to the channel
+        # channel = client.get_channel(channel_id)
+        msg = await source_channel.send(f'Suggestion: {suggestion}')
+        self.suggestion_messages.add(msg)
+        # Add the upvote/downvote reactions
+        await msg.add_reaction('👍')
+        await msg.add_reaction('👎')
+        await interaction.response.send_message(f'Suggestion {suggestion} added.', ephemeral=True)
+
+    async def handle_reaction(self, reaction, user):
+        print(
+            f'Reaction {reaction.emoji} from {user} on {reaction.message}')
+
+        # Ignore reactions from the bot
+        if user == client.user:
+            return
+
+        # Ignore reactions on non-vote messages.
+        if reaction.message not in self.suggestion_messages:
+            return
+
+        # Get the suggestion text
+        suggestion = reaction.message.content[12:]
+
+        # Check all reactions on the message
+        upvoters = set()
+        downvoters = set()
+        for reaction in reaction.message.reactions:
+            if reaction.emoji == '👍':
+                upvoters = {u async for u in reaction.users()}
+            elif reaction.emoji == '👎':
+                downvoters = {u async for u in reaction.users()}
+        actual_upvoters = upvoters - downvoters - {client.user}
+        self.suggestions_and_upvotes[suggestion] = actual_upvoters
+
+        await self.check_and_report_consensus()
+
+    async def check_and_report_consensus(self):
+        games = self.find_consensus()
+        if games is None:
+            return
+        lines = ["Consensus reached! Here's the list of games to play:"]
+        for game in games:
+            players = ', '.join(
+                u.name for u in self.suggestions_and_upvotes[game])
+            lines.append(f' - {game}: {players}')
+        await self.channel.send('\n'.join(lines))
+
+    def find_consensus(self):
+        all_voters = set()
+        for voters in self.suggestions_and_upvotes.values():
+            all_voters.update(voters)
+
+        # Check whether there's a non-overlapping covering set of voter-sets for progressively larger candidate covering set sizes.
+        # (Divide by two because the smallest usable voter-set is size 2)
+        for num_partitions in range(1, len(all_voters)//2 + 1):
+            for candidate_games in itertools.combinations(self.suggestions_and_upvotes.keys(), num_partitions):
+                candidate_voters = collections.Counter()
+                for game in candidate_games:
+                    for voter in self.suggestions_and_upvotes[game]:
+                        candidate_voters[voter] += 1
+
+                if any(votes > 1 for votes in candidate_voters.values()):
+                    # Can't have overlap between sets (which would mean that some players are assigned to multiple games)
+                    continue
+
+                if set(candidate_voters.keys()) == all_voters:
+                    # Found a consensus!
+                    return candidate_games
+        return None
+
+
+pending_votes: Dict[discord.TextChannel, VoteState] = {}
+
+
+def get_vote_state(channel: discord.TextChannel):
+    if channel not in pending_votes:
+        print(
+            f'Creating new vote state for {channel}')
+        pending_votes[channel] = VoteState(
+            channel=channel,
+            suggestions_and_upvotes={},
+            last_suggestion_made=None,
+            suggestion_messages=set(),
+        )
+    return pending_votes[channel]
 
 
 @tree.command(name='suggest')
 async def suggest_command(interaction: discord.interactions.Interaction, suggestion: str):
-    print(f'{type(interaction)}')
-    source_channel = interaction.channel
-    if suggestion in suggestions_and_upvotes:
-        await interaction.response.send_message(f'"{suggestion}" has already been suggested. Go vote on it?', ephemeral=True)
+    vote_state = get_vote_state(interaction.channel)
+    await vote_state.handle_suggest(interaction, suggestion, interaction.user.name)
+
+
+@tree.command(name='end')
+async def end_command(interaction: discord.interactions.Interaction):
+    if interaction.channel not in pending_votes:
+        await interaction.response.send_message('No pending votes.', ephemeral=True)
         return
 
-    # Add the suggestion to the list
-    suggestions_and_upvotes[suggestion] = set()
-
-    # Send the message to the channel
-    # channel = client.get_channel(channel_id)
-    msg = await source_channel.send(f'Suggestion: {suggestion}')
-    # Add the upvote/downvote reactions
-    await msg.add_reaction('👍')
-    await msg.add_reaction('👎')
-    await interaction.response.send_message(f'Suggestion {suggestion} added.', ephemeral=True)
+    vote_state = pending_votes[interaction.channel]
+    del pending_votes[interaction.channel]
+    await interaction.response.send_message('Vote ended.')
 
 
 @client.event
-async def on_reaction_add(reaction, user):
+async def on_reaction_add(reaction: discord.Reaction, user: discord.User):
     print(
         f'Got reaction {reaction.emoji} from {user} on {reaction.message.content}')
-    await handle_reaction(reaction, user)
+    await get_vote_state(reaction.message.channel).handle_reaction(reaction, user)
 
 
 @client.event
 async def on_reaction_remove(reaction, user):
     print(
         f'Removed reaction {reaction.emoji} from {user} on {reaction.message.content}')
-    await handle_reaction(reaction, user)
-
-
-async def handle_reaction(reaction, user):
-    print(
-        f'Reaction {reaction.emoji} from {user} on {reaction.message}')
-
-    # Ignore reactions from the bot
-    if user == client.user:
-        return
-
-    # Ignore reactions on messages that aren't from the bot
-    if reaction.message.author != client.user:
-        return
-
-    # Get the suggestion text
-    suggestion = reaction.message.content[12:]
-
-    # Check all reactions on the message
-    upvoters = set()
-    downvoters = set()
-    for reaction in reaction.message.reactions:
-        if reaction.emoji == '👍':
-            upvoters = {u async for u in reaction.users()}
-        elif reaction.emoji == '👎':
-            downvoters = {u async for u in reaction.users()}
-    actual_upvoters = upvoters - downvoters - {client.user}
-    suggestions_and_upvotes[suggestion] = actual_upvoters
-
-    await check_and_report_consensus(client)
+    await get_vote_state(reaction.message.channel).handle_reaction(reaction, user)
 
 
 @client.event
@@ -96,45 +174,10 @@ async def on_ready():
     print('Syncing command tree...')
     await tree.sync()
     print('Command tree synced')
-    global channel
-    # channel = client.get_channel(channel_id)
-    channel = await client.fetch_channel(channel_id)
-    await channel.send('I\'m alive!')
-
-
-async def check_and_report_consensus(client):
-    games = find_consensus()
-    if games is None:
-        return
-    lines = ["Consensus reached! Here's the list of games to play:"]
-    for game in games:
-        players = ', '.join(u.name for u in suggestions_and_upvotes[game])
-        lines.append(f' - {game}: {players}')
-    await channel.send('\n'.join(lines))
-
-
-def find_consensus():
-    all_voters = set()
-    for voters in suggestions_and_upvotes.values():
-        all_voters.update(voters)
-
-    # Check whether there's a non-overlapping covering set of voter-sets for progressively larger candidate covering set sizes.
-    # (Divide by two because the smallest usable voter-set is size 2)
-    for num_partitions in range(1, len(all_voters)//2 + 1):
-        for candidate_games in itertools.combinations(suggestions_and_upvotes.keys(), num_partitions):
-            candidate_voters = collections.Counter()
-            for game in candidate_games:
-                for voter in suggestions_and_upvotes[game]:
-                    candidate_voters[voter] += 1
-
-            if any(votes > 1 for votes in candidate_voters.values()):
-                # Can't have overlap between sets (which would mean that some players are assigned to multiple games)
-                continue
-
-            if set(candidate_voters.keys()) == all_voters:
-                # Found a consensus!
-                return candidate_games
-    return None
+    global status_channel
+    # TODO: get_channel
+    status_channel = await client.fetch_channel(status_channel_id)
+    await status_channel.send('I\'m alive!')
 
 
 if __name__ == '__main__':
