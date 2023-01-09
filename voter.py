@@ -8,7 +8,6 @@
 import collections
 from dataclasses import dataclass
 import itertools
-import math
 import discord
 from typing import *
 
