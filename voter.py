@@ -102,8 +102,6 @@ class VoteState:
         actual_upvoters = upvoters - {client.user}
         self.suggestions_and_upvotes[suggestion] = actual_upvoters
 
-        await self.check_and_report_consensus()
-
     async def check_and_report_consensus(self, interaction: discord.interactions.Interaction, ephemeral: bool):
         assignment = self.find_best_assignment()
         if assignment is None:
