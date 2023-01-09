@@ -77,7 +77,6 @@ class VoteState:
         self.suggestion_messages.add(msg)
         # Add the upvote/downvote reactions
         await msg.add_reaction('👍')
-        await msg.add_reaction('👎')
         await interaction.response.send_message(f'Suggestion {suggestion} added.', ephemeral=True)
 
     async def handle_reaction(self, reaction, user):
@@ -95,13 +94,10 @@ class VoteState:
 
         # Check all reactions on the message
         upvoters = set()
-        downvoters = set()
         for reaction in reaction.message.reactions:
             if reaction.emoji == '👍':
                 upvoters = {u async for u in reaction.users()}
-            elif reaction.emoji == '👎':
-                downvoters = {u async for u in reaction.users()}
-        actual_upvoters = upvoters - downvoters - {client.user}
+        actual_upvoters = upvoters - {client.user}
         self.suggestions_and_upvotes[suggestion] = actual_upvoters
 
         await self.check_and_report_consensus()
