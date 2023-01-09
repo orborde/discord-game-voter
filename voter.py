@@ -27,19 +27,16 @@ status_channel: Optional[discord.TextChannel] = None
 
 MINIMUM_VOTES = 4
 
-
-@dataclass
-class Suggestion:
-    game: str
-    voters: Set[str]
+# A set of games to play
+Consensus = Set[str]
 
 
 @dataclass
 class VoteState:
     channel: discord.TextChannel
     suggestions_and_upvotes: Dict[str, Set[str]]
-    last_suggestion_made: Optional[Suggestion]
-    # TODO: clean up old suggestion messages somehow
+    # TODO: clean up old consensus messages somehow
+    last_consensus_reported: Optional[Consensus]
     suggestion_messages: Set[discord.Message]
 
     async def handle_suggest(self, interaction: discord.interactions.Interaction, suggestion: str, voter: str):
@@ -94,14 +91,18 @@ class VoteState:
         games = self.find_consensus()
         if games is None:
             return
+        if self.last_consensus_reported is not None and games == self.last_consensus_reported:
+            return
         lines = ["Consensus reached! Here's the list of games to play:"]
         for game in games:
             players = ', '.join(
                 u.name for u in self.suggestions_and_upvotes[game])
             lines.append(f' - {game}: {players}')
         await self.channel.send('\n'.join(lines))
+        # Doing this at the end in case the send fails
+        self.last_consensus_reported = games
 
-    def find_consensus(self):
+    def find_consensus(self) -> Consensus:
         all_voters = set()
         for voters in self.suggestions_and_upvotes.values():
             all_voters.update(voters)
@@ -139,7 +140,7 @@ async def get_vote_state(channel: discord.TextChannel):
         pending_votes[channel] = VoteState(
             channel=channel,
             suggestions_and_upvotes={},
-            last_suggestion_made=None,
+            last_consensus_reported=None,
             suggestion_messages=set(),
         )
     return pending_votes[channel]
