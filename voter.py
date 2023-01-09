@@ -157,7 +157,8 @@ async def get_vote_state(channel: discord.TextChannel):
     if channel not in pending_votes:
         print(
             f'Creating new vote state for {channel}')
-        await channel.send('Starting a new vote!')
+        await channel.send(
+            "Starting a new vote! React 👍 on what you're willing to play, and `/suggest <game>` to add an option.")
         pending_votes[channel] = VoteState(
             channel=channel,
             suggestions_and_upvotes={},
