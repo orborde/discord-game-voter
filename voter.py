@@ -6,6 +6,7 @@
 #       others they haven't played with lately.
 # TODO: add an "I will play this but am not actively upvoting it" reaction
 
+import asyncio
 import collections
 from dataclasses import dataclass
 import itertools
@@ -150,6 +151,7 @@ class VoteState:
         return best_assignment
 
 
+global_state_lock = asyncio.Lock()
 pending_votes: Dict[discord.TextChannel, VoteState] = {}
 
 
@@ -170,50 +172,55 @@ async def get_vote_state(channel: discord.TextChannel):
 
 @tree.command(name='suggest')
 async def suggest_command(interaction: discord.interactions.Interaction, suggestion: str):
-    vote_state = await get_vote_state(interaction.channel)
-    await vote_state.handle_suggest(interaction, suggestion, interaction.user.name)
+    async with global_state_lock:
+        vote_state = await get_vote_state(interaction.channel)
+        await vote_state.handle_suggest(interaction, suggestion, interaction.user.name)
 
 
 @tree.command(name='endvote')
 async def endvote_command(interaction: discord.interactions.Interaction):
-    if interaction.channel not in pending_votes:
-        await interaction.response.send_message('No pending votes.', ephemeral=True)
-        return
+    async with global_state_lock:
+        if interaction.channel not in pending_votes:
+            await interaction.response.send_message('No pending votes.', ephemeral=True)
+            return
 
-    del pending_votes[interaction.channel]
-    await interaction.response.send_message('Vote ended.')
+        del pending_votes[interaction.channel]
+        await interaction.response.send_message('Vote ended.')
 
 
 @client.event
 async def on_reaction_add(reaction: discord.Reaction, user: discord.User):
-    print(
-        f'Got reaction {reaction.emoji} from {user} on {reaction.message.content}')
-    if reaction.message.channel not in pending_votes:
-        print('...ignored because no pending vote')
-        return
-    await pending_votes[reaction.message.channel].handle_reaction(reaction, user)
+    async with global_state_lock:
+        print(
+            f'Got reaction {reaction.emoji} from {user} on {reaction.message.content}')
+        if reaction.message.channel not in pending_votes:
+            print('...ignored because no pending vote')
+            return
+        await pending_votes[reaction.message.channel].handle_reaction(reaction, user)
 
 
 @client.event
 async def on_reaction_remove(reaction, user):
-    print(
-        f'Removed reaction {reaction.emoji} from {user} on {reaction.message.content}')
-    if reaction.message.channel not in pending_votes:
-        print('...ignored because no pending vote')
-        return
-    await pending_votes[reaction.message.channel].handle_reaction(reaction, user)
+    async with global_state_lock:
+        print(
+            f'Removed reaction {reaction.emoji} from {user} on {reaction.message.content}')
+        if reaction.message.channel not in pending_votes:
+            print('...ignored because no pending vote')
+            return
+        await pending_votes[reaction.message.channel].handle_reaction(reaction, user)
 
 
 @client.event
 async def on_ready():
-    print(f'We have logged in as {client.user}')
-    print('Syncing command tree...')
-    await tree.sync()
-    print('Command tree synced')
-    global status_channel
-    # TODO: get_channel
-    status_channel = await client.fetch_channel(status_channel_id)
-    await status_channel.send('I\'m alive!')
+    async with global_state_lock:
+        print(f'We have logged in as {client.user}')
+        print('Syncing command tree...')
+        await tree.sync()
+        print('Command tree synced')
+        global status_channel
+        # TODO: get_channel
+        status_channel = await client.fetch_channel(status_channel_id)
+        await status_channel.send('I\'m alive!')
 
 
 if __name__ == '__main__':
