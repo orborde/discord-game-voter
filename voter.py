@@ -4,6 +4,7 @@
 
 # TODO: incorporate logging of the last assignment people accepted so that we can assign players together with
 #       others they haven't played with lately.
+# TODO: add an "I will play this but am not actively upvoting it" reaction
 
 import collections
 from dataclasses import dataclass
