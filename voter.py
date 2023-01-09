@@ -185,7 +185,6 @@ async def end_command(interaction: discord.interactions.Interaction):
         await interaction.response.send_message('No pending votes.', ephemeral=True)
         return
 
-    vote_state = pending_votes[interaction.channel]
     del pending_votes[interaction.channel]
     await interaction.response.send_message('Vote ended.')
 
