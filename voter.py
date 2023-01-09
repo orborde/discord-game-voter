@@ -79,9 +79,6 @@ class VoteState:
         await interaction.response.send_message(f'Suggestion {suggestion} added.', ephemeral=True)
 
     async def handle_reaction(self, reaction, user):
-        print(
-            f'Reaction {reaction.emoji} from {user} on {reaction.message}')
-
         # Ignore reactions from the bot
         if user == client.user:
             return
