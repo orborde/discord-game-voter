@@ -68,6 +68,7 @@ class VoteState:
 
         # Ignore reactions on non-vote messages.
         if reaction.message not in self.suggestion_messages:
+            print('Ignoring reaction on non-vote message')
             return
 
         # Get the suggestion text
@@ -158,6 +159,9 @@ async def end_command(interaction: discord.interactions.Interaction):
 async def on_reaction_add(reaction: discord.Reaction, user: discord.User):
     print(
         f'Got reaction {reaction.emoji} from {user} on {reaction.message.content}')
+    if reaction.message.channel not in pending_votes:
+        print('...ignored because no pending vote')
+        return
     await get_vote_state(reaction.message.channel).handle_reaction(reaction, user)
 
 
@@ -165,6 +169,9 @@ async def on_reaction_add(reaction: discord.Reaction, user: discord.User):
 async def on_reaction_remove(reaction, user):
     print(
         f'Removed reaction {reaction.emoji} from {user} on {reaction.message.content}')
+    if reaction.message.channel not in pending_votes:
+        print('...ignored because no pending vote')
+        return
     await get_vote_state(reaction.message.channel).handle_reaction(reaction, user)
 
 
