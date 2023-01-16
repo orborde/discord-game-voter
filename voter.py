@@ -109,11 +109,11 @@ class VoteState:
                 textwrap.dedent(
                     f"""
                     No suitable assignment found.
-                    (At least {MINIMUM_VOTES} people need to cast votes, and I'm looking for at least {MINIMUM_PLAYERS_PER_GAME} in each game.)
+                    (At least {MINIMUM_VOTES} people need to cast votes, and I'm looking for at least {MINIMUM_PLAYERS_PER_GAME} players in each game.)
                     """),
                 ephemeral=ephemeral)
             return
-        lines = ["Consensus reached! Here's the list of games to play:"]
+        lines = ["Here's the list of games to play:"]
         games_to_players = collections.defaultdict(set)
         for player, game in assignment.items():
             games_to_players[game].add(player)
