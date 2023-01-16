@@ -166,6 +166,10 @@ async def get_vote_state(channel: discord.TextChannel):
         await channel.send(
             textwrap.dedent("""
             Starting a new vote!
+
+            I'm a bot that tries to find a game that everyone wants to play. If I can't, I'll try to split the group
+            into two smaller groups that can play different games.
+
             - React 👍 on what you're willing to play
             - `/suggest <game>` to add an option
             - `/tally` to see the current results
