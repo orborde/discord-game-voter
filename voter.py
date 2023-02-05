@@ -28,7 +28,7 @@ status_channel_id = 1061770027860230265
 status_channel: Optional[discord.TextChannel] = None
 
 
-MINIMUM_VOTES = 4
+MINIMUM_VOTES = 1
 MINIMUM_PLAYERS_PER_GAME = 2
 
 
