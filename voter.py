@@ -79,6 +79,7 @@ class VoteState:
         self.suggestion_messages.add(msg)
         # Add the upvote/downvote reactions
         await msg.add_reaction('👍')
+        print(f'{voter} added suggestion "{suggestion}" to {source_channel}.')
         await interaction.response.send_message(f'Suggestion {suggestion} added.', ephemeral=True)
 
     async def handle_reaction(self, reaction, user):
