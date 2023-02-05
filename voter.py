@@ -61,7 +61,8 @@ class VoteState:
     suggestions_and_upvotes: Dict[str, Set[str]]
     # TODO: clean up old consensus messages somehow
     last_assignment_reported: Optional[Assignment]
-    suggestion_messages: Set[discord.Message]
+    suggestions_to_messages: Dict[str, discord.Message]
+    messages_to_suggestions: Dict[discord.Message, str]
 
     async def handle_suggest(self, interaction: discord.interactions.Interaction, suggestion: str, voter: str):
         source_channel = interaction.channel
@@ -76,11 +77,23 @@ class VoteState:
         # Send the message to the channel
         # channel = client.get_channel(channel_id)
         msg = await source_channel.send(f'Suggestion: {suggestion}')
-        self.suggestion_messages.add(msg)
+        self.suggestions_to_messages[suggestion] = msg
+        self.messages_to_suggestions[msg] = suggestion
         # Add the upvote/downvote reactions
         await msg.add_reaction('👍')
         print(f'{voter} added suggestion "{suggestion}" to {source_channel}.')
         await interaction.response.send_message(f'Suggestion {suggestion} added.', ephemeral=True)
+
+    async def handle_delete(self, interaction: discord.interactions.Interaction, suggestion: str):
+        if suggestion not in self.suggestions_and_upvotes:
+            await interaction.response.send_message(f'"{suggestion}" has not been suggested.', ephemeral=True)
+            return
+        message = self.suggestions_to_messages[suggestion]
+        await message.delete()
+        del self.suggestions_and_upvotes[suggestion]
+        del self.messages_to_suggestions[message]
+        del self.suggestions_to_messages[suggestion]
+        await interaction.response.send_message(f'Suggestion {suggestion} deleted.', ephemeral=True)
 
     async def handle_reaction(self, reaction, user):
         # Ignore reactions from the bot
@@ -88,12 +101,12 @@ class VoteState:
             return
 
         # Ignore reactions on non-vote messages.
-        if reaction.message not in self.suggestion_messages:
+        if reaction.message not in self.messages_to_suggestions:
             print('Ignoring reaction on non-vote message')
             return
 
         # Get the suggestion text
-        suggestion = reaction.message.content[12:]
+        suggestion = self.messages_to_suggestions[reaction.message]
 
         # Check all reactions on the message
         upvoters = set()
@@ -179,7 +192,8 @@ async def get_vote_state(channel: discord.TextChannel):
             channel=channel,
             suggestions_and_upvotes={},
             last_assignment_reported=None,
-            suggestion_messages=set(),
+            suggestions_to_messages={},
+            messages_to_suggestions={},
         )
     return pending_votes[channel]
 
@@ -189,6 +203,17 @@ async def suggest_command(interaction: discord.interactions.Interaction, suggest
     async with global_state_lock:
         vote_state = await get_vote_state(interaction.channel)
         await vote_state.handle_suggest(interaction, suggestion, interaction.user.name)
+
+
+@tree.command(name='delete')
+async def delete_command(interaction: discord.interactions.Interaction, suggestion: str):
+    async with global_state_lock:
+        if interaction.channel not in pending_votes:
+            await interaction.response.send_message('No vote in progress.', ephemeral=True)
+            return
+
+        vote_state = pending_votes[interaction.channel]
+        await vote_state.handle_delete(interaction, suggestion)
 
 
 @tree.command(name='tally')
