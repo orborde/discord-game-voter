@@ -185,6 +185,7 @@ async def get_vote_state(channel: discord.TextChannel):
 
             - React 👍 on what you're willing to play
             - `/suggest <game>` to add an option
+            - `/delete <game>` to remove an option
             - `/tally` to see the current results
             - `/endvote` to end the vote
             """))
